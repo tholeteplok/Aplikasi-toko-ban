@@ -1,75 +1,79 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../supabaseClient'
+import Layout from '../components/Layout'
 import withAuth from '../utils/withAuth'
 
 function Verifikasi() {
-  const [items, setItems] = useState([])
+  const [data, setData] = useState([])
 
   useEffect(() => {
-    fetchVerifications()
+    fetchData()
   }, [])
 
-  async function fetchVerifications() {
+  async function fetchData() {
     const { data } = await supabase
-      .from('verifications')
+      .from('transactions')
       .select('*')
-      .eq('status', 'pending')
+      .eq('status_verifikasi', 'pending')
       .order('created_at', { ascending: false })
-    setItems(data)
+
+    setData(data)
   }
 
-  async function handleApproval(id, approve = true) {
-    const { data } = await supabase
-      .from('verifications')
-      .update({ status: approve ? 'approved' : 'rejected' })
+  async function updateStatus(id, status) {
+    await supabase
+      .from('transactions')
+      .update({ status_verifikasi: status })
       .eq('id', id)
 
-    // Jika disetujui, apply datanya ke tabel terkait
-    if (approve && data[0]?.type === 'stok') {
-      const update = data[0].data
-      await supabase
-        .from('products')
-        .update({ stock: update.newStock })
-        .eq('id', update.productId)
-    }
-
-    fetchVerifications()
+    fetchData()
   }
 
   return (
-    <div className="p-8">
-      <h1 className="text-2xl font-bold mb-6">Verifikasi Owner</h1>
-
-      {items.length === 0 ? (
-        <p className="text-gray-500">Tidak ada data yang menunggu verifikasi.</p>
-      ) : (
-        <div className="space-y-4">
-          {items.map((item) => (
-            <div key={item.id} className="border p-4 rounded">
-              <p className="font-semibold">Jenis: {item.type}</p>
-              <pre className="text-sm text-gray-700 bg-gray-100 p-2 rounded mt-2">
-                {JSON.stringify(item.data, null, 2)}
-              </pre>
-              <div className="mt-4 flex gap-4">
-                <button
-                  onClick={() => handleApproval(item.id, true)}
-                  className="bg-green-500 text-white px-4 py-2 rounded"
-                >
-                  Setujui
-                </button>
-                <button
-                  onClick={() => handleApproval(item.id, false)}
-                  className="bg-red-500 text-white px-4 py-2 rounded"
-                >
-                  Tolak
-                </button>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
+    <Layout>
+      <div className="max-w-4xl mx-auto">
+        <h1 className="text-2xl font-bold mb-4">Verifikasi Transaksi</h1>
+        {data.length === 0 ? (
+          <p className="text-gray-500">Tidak ada transaksi yang perlu diverifikasi.</p>
+        ) : (
+          <table className="w-full text-sm border border-gray-300">
+            <thead>
+              <tr className="bg-gray-100">
+                <th className="p-2 border">Tanggal</th>
+                <th className="p-2 border">Kasir</th>
+                <th className="p-2 border">Total</th>
+                <th className="p-2 border">Aksi</th>
+              </tr>
+            </thead>
+            <tbody>
+              {data.map((item) => (
+                <tr key={item.id} className="border-t">
+                  <td className="p-2 border">{new Date(item.created_at).toLocaleString('id-ID')}</td>
+                  <td className="p-2 border">{item.kasir}</td>
+                  <td className="p-2 border">Rp {item.total.toLocaleString('id-ID')}</td>
+                  <td className="p-2 border space-x-2">
+                    <button
+                      onClick={() => updateStatus(item.id, 'disetujui')}
+                      className="bg-green-600 text-white px-2 py-1 rounded"
+                    >
+                      Setujui
+                    </button>
+                    <button
+                      onClick={() => updateStatus(item.id, 'ditolak')}
+                      className="bg-red-600 text-white px-2 py-1 rounded"
+                    >
+                      Tolak
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+    </Layout>
   )
 }
 
 export default withAuth(Verifikasi)
+

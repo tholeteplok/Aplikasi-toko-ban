@@ -1,89 +1,80 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../supabaseClient'
-import withAuth from '../utils/withAuth'
 import Layout from '../components/Layout'
+import withAuth from '../utils/withAuth'
 
-function Produk({ user }) {
+function Produk() {
   const [produk, setProduk] = useState([])
-  const [nama, setNama] = useState('')
-  const [merk, setMerk] = useState('')
-  const [harga, setHarga] = useState('')
+  const [kategori, setKategori] = useState('')
+  const [search, setSearch] = useState('')
 
   useEffect(() => {
     fetchProduk()
-  }, [])
+  }, [kategori, search])
 
-  async function fetchProduk() {
-    const { data } = await supabase.from('products').select('*').order('created_at', { ascending: false })
-    setProduk(data)
+  const fetchProduk = async () => {
+    let query = supabase.from('products').select()
+
+    if (kategori) query = query.eq('kategori', kategori)
+    if (search) query = query.ilike('nama', `%${search}%`)
+
+    const { data } = await query
+    setProduk(data || [])
   }
 
-  async function handleSubmit(e) {
-    e.preventDefault()
-    const { error } = await supabase.from('products').insert([
-      { name: nama, brand: merk, price: parseInt(harga) }
-    ])
-    if (!error) {
-      setNama('')
-      setMerk('')
-      setHarga('')
-      fetchProduk()
-    }
-  }
+  const uniqueKategori = [...new Set(produk.map((p) => p.kategori))]
 
   return (
     <Layout>
-      <div className="max-w-xl mx-auto">
-        <h1 className="text-2xl font-bold mb-6">Input Produk</h1>
-        <form onSubmit={handleSubmit} className="space-y-4 mb-8">
-          <div>
-            <label className="block font-medium">Nama Produk</label>
-            <input
-              type="text"
-              value={nama}
-              onChange={(e) => setNama(e.target.value)}
-              className="w-full border px-3 py-2 rounded"
-              required
-            />
-          </div>
-          <div>
-            <label className="block font-medium">Merk</label>
-            <input
-              type="text"
-              value={merk}
-              onChange={(e) => setMerk(e.target.value)}
-              className="w-full border px-3 py-2 rounded"
-              required
-            />
-          </div>
-          <div>
-            <label className="block font-medium">Harga</label>
-            <input
-              type="number"
-              value={harga}
-              onChange={(e) => setHarga(e.target.value)}
-              className="w-full border px-3 py-2 rounded"
-              required
-            />
-          </div>
-          <button type="submit" className="bg-blue-600 text-white px-4 py-2 rounded">
-            Simpan Produk
-          </button>
-        </form>
+      <div className="max-w-4xl mx-auto mt-6 space-y-4">
+        <h1 className="text-xl font-bold">Daftar Produk</h1>
 
-        <h2 className="text-xl font-semibold mb-3">Daftar Produk</h2>
-        <ul className="space-y-2">
-          {produk.map((item) => (
-            <li key={item.id} className="p-3 border rounded bg-gray-50 flex justify-between">
-              <span>{item.name} ({item.brand})</span>
-              <span>Rp {item.price.toLocaleString('id-ID')}</span>
-            </li>
-          ))}
-        </ul>
+        <div className="flex gap-4">
+          <input
+            type="text"
+            className="border px-3 py-2 w-full"
+            placeholder="Cari nama produk"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+
+          <select
+            className="border px-3 py-2"
+            value={kategori}
+            onChange={(e) => setKategori(e.target.value)}
+          >
+            <option value="">Semua Kategori</option>
+            {uniqueKategori.map((k, idx) => (
+              <option key={idx} value={k}>{k}</option>
+            ))}
+          </select>
+        </div>
+
+        <table className="w-full border mt-4">
+          <thead>
+            <tr className="bg-gray-100">
+              <th className="p-2 border">Nama</th>
+              <th className="p-2 border">Kategori</th>
+              <th className="p-2 border">Harga</th>
+              <th className="p-2 border">Stok</th>
+            </tr>
+          </thead>
+          <tbody>
+            {produk.map((p) => (
+              <tr key={p.id} className="text-center">
+                <td className="p-2 border">{p.nama}</td>
+                <td className="p-2 border">{p.kategori}</td>
+                <td className="p-2 border">Rp {p.harga.toLocaleString()}</td>
+                <td className="p-2 border">{p.stok}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
     </Layout>
   )
 }
 
 export default withAuth(Produk)
+
 

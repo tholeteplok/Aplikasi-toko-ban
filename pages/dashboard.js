@@ -1,69 +1,80 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../supabaseClient'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts'
+import Layout from '../components/Layout'
 import withAuth from '../utils/withAuth'
 
 function Dashboard() {
   const [data, setData] = useState([])
-  const [filter, setFilter] = useState('daily')
+  const [range, setRange] = useState('harian')
 
   useEffect(() => {
-    fetchData(filter)
-  }, [filter])
+    fetchData(range)
+  }, [range])
 
-  async function fetchData(period) {
-    let groupBy
-    switch (period) {
-      case 'weekly':
-        groupBy = "DATE_TRUNC('week', created_at)"
-        break
-      case 'monthly':
-        groupBy = "DATE_TRUNC('month', created_at)"
-        break
-      case 'yearly':
-        groupBy = "DATE_TRUNC('year', created_at)"
-        break
-      default:
-        groupBy = "DATE_TRUNC('day', created_at)"
-    }
+  async function fetchData(jenis) {
+    let query = supabase.from('transactions').select('*')
+    const { data } = await query
+    if (!data) return setData([])
 
-    const { data, error } = await supabase.rpc('get_sales_summary', { group_by: groupBy })
+    // Format tanggal & group data
+    const grouped = {}
 
-    if (!error) {
-      const formatted = data.map((item) => ({
-        date: new Date(item.period).toLocaleDateString('id-ID'),
-        total: parseInt(item.total),
-      }))
-      setData(formatted)
-    }
+    data.forEach((t) => {
+      const date = new Date(t.created_at)
+      let key = ''
+
+      if (jenis === 'harian') {
+        key = date.toLocaleDateString('id-ID')
+      } else if (jenis === 'mingguan') {
+        const week = Math.ceil(date.getDate() / 7)
+        key = `Minggu ${week} - ${date.getMonth() + 1}/${date.getFullYear()}`
+      } else if (jenis === 'bulanan') {
+        key = `${date.getMonth() + 1}/${date.getFullYear()}`
+      } else if (jenis === 'tahunan') {
+        key = `${date.getFullYear()}`
+      }
+
+      if (!grouped[key]) grouped[key] = 0
+      grouped[key] += t.total
+    })
+
+    const chartData = Object.entries(grouped).map(([label, total]) => ({
+      label,
+      total
+    }))
+
+    setData(chartData)
   }
 
   return (
-    <div className="p-8">
-      <h1 className="text-2xl font-bold mb-6">Dashboard Penjualan</h1>
+    <Layout>
+      <div className="max-w-4xl mx-auto">
+        <h1 className="text-2xl font-bold mb-4">Statistik Penjualan</h1>
 
-      <div className="mb-4 space-x-2">
-        {['daily', 'weekly', 'monthly', 'yearly'].map((opt) => (
-          <button
-            key={opt}
-            onClick={() => setFilter(opt)}
-            className={`px-4 py-2 rounded ${filter === opt ? 'bg-blue-600 text-white' : 'bg-gray-200'}`}
-          >
-            {opt.toUpperCase()}
-          </button>
-        ))}
+        <select
+          className="mb-4 px-3 py-2 border rounded"
+          value={range}
+          onChange={(e) => setRange(e.target.value)}
+        >
+          <option value="harian">Harian</option>
+          <option value="mingguan">Mingguan</option>
+          <option value="bulanan">Bulanan</option>
+          <option value="tahunan">Tahunan</option>
+        </select>
+
+        <ResponsiveContainer width="100%" height={400}>
+          <BarChart data={data}>
+            <XAxis dataKey="label" />
+            <YAxis />
+            <Tooltip />
+            <Bar dataKey="total" fill="#2563eb" />
+          </BarChart>
+        </ResponsiveContainer>
       </div>
-
-      <ResponsiveContainer width="100%" height={350}>
-        <BarChart data={data}>
-          <XAxis dataKey="date" />
-          <YAxis />
-          <Tooltip formatter={(value) => `Rp ${value.toLocaleString('id-ID')}`} />
-          <Bar dataKey="total" fill="#60a5fa" />
-        </BarChart>
-      </ResponsiveContainer>
-    </div>
+    </Layout>
   )
 }
 
 export default withAuth(Dashboard)
+

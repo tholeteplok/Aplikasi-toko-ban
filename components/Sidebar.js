@@ -33,5 +33,14 @@ const Sidebar = () => {
     </aside>
   )
 }
+import { FaCashRegister } from 'react-icons/fa'
+
+// Tambahkan di dalam daftar navigasi
+{
+  title: 'Transaksi',
+  path: '/transaksi',
+  icon: <FaCashRegister />,
+}
+
 
 export default Sidebar
